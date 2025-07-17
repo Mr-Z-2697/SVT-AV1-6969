@@ -1013,7 +1013,15 @@ typedef struct EbSvtAv1EncConfiguration {
      */
     bool rtc;
 #endif
-    // clang-format off
+	/* @brief compresses the QP hierarchical layer scale to improve temporal video consistency
+	* 0: no compression, original SVT-AV1 scaling
+	* 1-3: enable compression, the higher the number the stronger the compression
+	*      (different frame quality fluctuation/mean quality tradeoffs)
+	* Default is 1
+	*/
+	uint8_t qp_scale_compress_strength;
+
+	// clang-format off
     /*Add 128 Byte Padding to Struct to avoid changing the size of the public configuration struct*/
     uint8_t padding[128 - (sizeof(uint8_t) * 2)
 #if FTR_RTC_MODE

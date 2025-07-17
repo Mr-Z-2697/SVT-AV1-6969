@@ -1374,6 +1374,7 @@ typedef struct PictureControlSetInitData {
 #if OPT_ALLINTRA_STILLIMAGE_2
     bool allintra;
 #endif
+    uint8_t qp_scale_compress_strength;
 } PictureControlSetInitData;
 
 #if !CLN_FUNCS_HEADER

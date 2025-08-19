@@ -1793,10 +1793,10 @@ void svt_aom_sb_qp_derivation_tpl_la(PictureControlSet *pcs) {
 }
 
 /******************************************************
- * normalize_sb_delta_q
+ * svt_av1_normalize_sb_delta_q
  * Adjusts superblock delta q to the most optimal res
  ******************************************************/
-void normalize_sb_delta_q(PictureControlSet *pcs) {
+void svt_av1_normalize_sb_delta_q(PictureControlSet *pcs) {
     PictureParentControlSet *ppcs_ptr = pcs->ppcs;
     SequenceControlSet      *scs      = pcs->ppcs->scs;
 
@@ -1817,7 +1817,7 @@ void normalize_sb_delta_q(PictureControlSet *pcs) {
     } else {
         // low qindex, nothing to normalize (leave delta_q_res = 1)
 #if DEBUG_VAR_BOOST_STATS
-        printf("Frame %llu, temp. level %i, keep delta_q_res = 1\n", pcs->picture_number, pcs->temporal_layer_index);
+        SVT_LOG("Frame %llu, temp. level %i, keep delta_q_res = 1\n", pcs->picture_number, pcs->temporal_layer_index);
 #endif
         return;
     }
@@ -1834,10 +1834,10 @@ void normalize_sb_delta_q(PictureControlSet *pcs) {
     if (ppcs_ptr->frame_superres_enabled || ppcs_ptr->frame_resize_enabled)
         sb_cnt = ppcs_ptr->b64_total_count;
 #if DEBUG_VAR_BOOST_STATS
-    printf("Normalized delta q boost, frame %llu, temp. level %i, new delta_q_res %i\n",
-           pcs->picture_number,
-           pcs->temporal_layer_index,
-           delta_q_res);
+    SVT_LOG("Normalized delta q boost, frame %llu, temp. level %i, new delta_q_res %i\n",
+            pcs->picture_number,
+            pcs->temporal_layer_index,
+            delta_q_res);
 #endif
     for (uint32_t sb_addr = 0; sb_addr < sb_cnt; ++sb_addr) {
         SuperBlock *sb_ptr = pcs->sb_ptr_array[sb_addr];
@@ -1847,9 +1847,9 @@ void normalize_sb_delta_q(PictureControlSet *pcs) {
         // q_index 0 is lossless, and is currently not supported in SVT-AV1
         sb_ptr->qindex = normalized_q_index == 0 ? delta_q_res : normalized_q_index;
 #if DEBUG_VAR_BOOST_STATS
-        printf("%4d ", sb_ptr->qindex);
+        SVT_LOG("%4d ", sb_ptr->qindex);
         if (pcs->frame_width <= (sb_ptr->org_x + 64)) {
-            printf("\n");
+            SVT_LOG("\n");
         }
 #endif
     }
@@ -3915,7 +3915,7 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
 
             if (scs->static_config.enable_variance_boost && pcs->ppcs->frm_hdr.delta_q_params.delta_q_present) {
                 // adjust delta q res and normalize superblock delta q values to reduce signaling overhead
-                normalize_sb_delta_q(pcs);
+                svt_av1_normalize_sb_delta_q(pcs);
             }
             if (scs->static_config.rate_control_mode && !is_superres_recode_task) {
                 svt_aom_update_rc_counts(pcs->ppcs);

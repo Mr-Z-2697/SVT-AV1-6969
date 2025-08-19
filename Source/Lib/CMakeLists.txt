@@ -21,9 +21,9 @@ add_library(common_lib INTERFACE)
 
 if(COVERAGE)
     if(CMAKE_C_COMPILER_ID MATCHES "GNU")
-        list(APPEND PC_LIBS_PRIVATE -lgcov)
+        list(APPEND ENC_PKG_CONFIG_EXTRA_LIBS -lgcov)
     else(CMAKE_C_COMPILER_ID MATCHES "Clang")
-        list(APPEND PC_LIBS_PRIVATE --coverage)
+        list(APPEND ENC_PKG_CONFIG_EXTRA_LIBS --coverage)
     endif()
 endif()
 
@@ -121,12 +121,23 @@ set_target_properties(SvtAv1Enc PROPERTIES SOVERSION ${ENC_VERSION_MAJOR})
 set_target_properties(SvtAv1Enc PROPERTIES C_VISIBILITY_PRESET hidden)
 target_link_libraries(SvtAv1Enc PUBLIC ${PLATFORM_LIBS})
 
-set(ENC_PKG_CONFIG_EXTRA_CFLAGS "")
 if (BUILD_SHARED_LIBS)
     target_compile_definitions(SvtAv1Enc
         PUBLIC EB_DLL
         PRIVATE EB_BUILDING_SHARED_LIBS)
-    set(ENC_PKG_CONFIG_EXTRA_CFLAGS " -DEB_DLL")
+    set(PC_REQUIRES_PUBLIC)
+    string(JOIN " " PC_LIBS_PUBLIC -L\${libdir} -lSvtAv1Enc)
+    string(JOIN " " PC_CFLAGS_PUBLIC -I\${includedir}/svt-av1 -DEB_DLL)
+    string(JOIN " " PC_REQUIRES_PRIVATE ${ENC_PKG_CONFIG_EXTRA_REQUIRES})
+    string(JOIN " " PC_LIBS_PRIVATE ${ENC_PKG_CONFIG_EXTRA_LIBS})
+    string(JOIN " " PC_CFLAGS_PRIVATE ${ENC_PKG_CONFIG_EXTRA_CFLAGS} -UEB_DLL)
+else()
+    string(JOIN " " PC_REQUIRES_PUBLIC ${ENC_PKG_CONFIG_EXTRA_REQUIRES})
+    string(JOIN " " PC_LIBS_PUBLIC -L\${libdir} -lSvtAv1Enc ${ENC_PKG_CONFIG_EXTRA_LIBS})
+    string(JOIN " " PC_CFLAGS_PUBLIC -I$\{includedir}/svt-av1 ${ENC_PKG_CONFIG_EXTRA_CFLAGS})
+    set(PC_REQUIRES_PRIVATE)
+    set(PC_LIBS_PRIVATE)
+    set(PC_CFLAGS_PRIVATE)
 endif()
 install(TARGETS SvtAv1Enc
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"

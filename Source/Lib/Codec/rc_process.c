@@ -1302,8 +1302,8 @@ static int compute_deltaq(struct PictureParentControlSet *ppcs, RATE_CONTROL *rc
     }
     if (!rc->onepass_cbr_mode) {
         // RA uses a scale factor of 4 for the deltaQ range. Found it beneficial for low delay to have a larger deltaQ range, so we scale by 8
-        deltaq = AOMMIN(deltaq, ppcs->frm_hdr.delta_q_params.delta_q_res * 9 * 8 - 1);
-        deltaq = AOMMAX(deltaq, -ppcs->frm_hdr.delta_q_params.delta_q_res * 9 * 8 + 1);
+        deltaq = AOMMIN(deltaq, 9 * 8 - 1);
+        deltaq = AOMMAX(deltaq, -9 * 8 + 1);
     }
     return deltaq;
 }
@@ -1405,9 +1405,7 @@ static void cyclic_sb_qp_derivation(PictureControlSet *pcs) {
         } else if (b64_idx >= cr->sb_start && b64_idx < cr->sb_end) {
             offset = cr->qindex_delta[CR_SEGMENT_ID_BOOST1];
         }
-        sb->qindex = CLIP3(ppcs->frm_hdr.delta_q_params.delta_q_res,
-                           255 - ppcs->frm_hdr.delta_q_params.delta_q_res,
-                           ((int16_t)ppcs->frm_hdr.quantization_params.base_q_idx + (int16_t)offset));
+        sb->qindex = CLIP3(1, MAX_Q_INDEX, ((int16_t)ppcs->frm_hdr.quantization_params.base_q_idx + (int16_t)offset));
     }
 }
 
@@ -1514,12 +1512,10 @@ static void generate_b64_me_qindex_map(PictureControlSet *pcs) {
                     : 0;
             }
 
-            offset                      = AOMMIN(offset, pcs->ppcs->frm_hdr.delta_q_params.delta_q_res * 9 * 4 - 1);
-            offset                      = AOMMAX(offset, -pcs->ppcs->frm_hdr.delta_q_params.delta_q_res * 9 * 4 + 1);
+            offset                      = AOMMIN(offset, 9 * 4 - 1);
+            offset                      = AOMMAX(offset, -9 * 4 + 1);
             pcs->b64_me_qindex[b64_idx] = CLIP3(
-                pcs->ppcs->frm_hdr.delta_q_params.delta_q_res,
-                255 - pcs->ppcs->frm_hdr.delta_q_params.delta_q_res,
-                ((int16_t)ppcs->frm_hdr.quantization_params.base_q_idx + (int16_t)offset));
+                1, MAX_Q_INDEX, ((int16_t)ppcs->frm_hdr.quantization_params.base_q_idx + (int16_t)offset));
         }
     } else {
         for (b64_idx = 0; b64_idx < ppcs->b64_total_count; ++b64_idx) {
@@ -1773,8 +1769,8 @@ void svt_aom_sb_qp_derivation_tpl_la(PictureControlSet *pcs) {
             double      beta   = ppcs_ptr->pa_me_data->tpl_beta[sb_addr];
             int         offset = svt_av1_get_deltaq_offset(
                 scs->static_config.encoder_bit_depth, sb_ptr->qindex, beta, pcs->ppcs->slice_type == I_SLICE);
-            offset = AOMMIN(offset, pcs->ppcs->frm_hdr.delta_q_params.delta_q_res * 9 * 4 - 1);
-            offset = AOMMAX(offset, -pcs->ppcs->frm_hdr.delta_q_params.delta_q_res * 9 * 4 + 1);
+            offset = AOMMIN(offset, 9 * 4 - 1);
+            offset = AOMMAX(offset, -9 * 4 + 1);
 
 #if DEBUG_VAR_BOOST_STATS
             SVT_DEBUG("%4d ", -offset);
@@ -1797,34 +1793,11 @@ void svt_aom_sb_qp_derivation_tpl_la(PictureControlSet *pcs) {
  * Adjusts superblock delta q to the most optimal res
  ******************************************************/
 void svt_av1_normalize_sb_delta_q(PictureControlSet *pcs) {
-    PictureParentControlSet *ppcs_ptr = pcs->ppcs;
-    SequenceControlSet      *scs      = pcs->ppcs->scs;
-
-    // use the (encode-wide) qp setting to determine delta_q_res
-    uint8_t qindex      = quantizer_to_qindex[(uint8_t)scs->static_config.qp];
-    uint8_t delta_q_res = 8;
-
-    // determine delta_q_res based on qindex
-    // delta q overhead becomes proportionally bigger the higher the qindex,
-    // and qstep jumps between qindexes become bigger the lower the qindex
-    // so dynamically increase delta_q_res granularity as qindex decreases
-    if (qindex >= 160) {
-        delta_q_res = 8;
-    } else if (qindex >= 120) {
-        delta_q_res = 4;
-    } else if (qindex >= 80) {
-        delta_q_res = 2;
-    } else {
-        // low qindex, nothing to normalize (leave delta_q_res = 1)
-#if DEBUG_VAR_BOOST_STATS
-        SVT_LOG("Frame %llu, temp. level %i, keep delta_q_res = 1\n", pcs->picture_number, pcs->temporal_layer_index);
-#endif
-        return;
-    }
+    PictureParentControlSet *ppcs_ptr    = pcs->ppcs;
+    SequenceControlSet      *scs         = pcs->ppcs->scs;
+    uint8_t                  delta_q_res = pcs->ppcs->frm_hdr.delta_q_params.delta_q_res;
 
     assert(delta_q_res == 2 || delta_q_res == 4 || delta_q_res == 8);
-
-    pcs->ppcs->frm_hdr.delta_q_params.delta_q_res = delta_q_res;
 
     uint8_t mask              = ~(delta_q_res - 1);
     uint8_t delta_q_remainder = ppcs_ptr->frm_hdr.quantization_params.base_q_idx & ~mask;
@@ -1844,7 +1817,7 @@ void svt_av1_normalize_sb_delta_q(PictureControlSet *pcs) {
 
         uint8_t normalized_q_index = (sb_ptr->qindex & mask) + delta_q_remainder;
 
-        // q_index 0 is lossless, and is currently not supported in SVT-AV1
+        // q_index 0 is lossless, so do not use it when encoding in lossy mode
         sb_ptr->qindex = normalized_q_index == 0 ? delta_q_res : normalized_q_index;
 #if DEBUG_VAR_BOOST_STATS
         SVT_LOG("%4d ", sb_ptr->qindex);
@@ -3913,7 +3886,8 @@ void *svt_aom_rate_control_kernel(void *input_ptr) {
                 pcs->ppcs->frm_hdr.delta_q_params.delta_q_present = 1;
             }
 
-            if (scs->static_config.enable_variance_boost && pcs->ppcs->frm_hdr.delta_q_params.delta_q_present) {
+            if (pcs->ppcs->frm_hdr.delta_q_params.delta_q_present &&
+                pcs->ppcs->frm_hdr.delta_q_params.delta_q_res != 1) {
                 // adjust delta q res and normalize superblock delta q values to reduce signaling overhead
                 svt_av1_normalize_sb_delta_q(pcs);
             }

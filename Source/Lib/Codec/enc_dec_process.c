@@ -2207,7 +2207,7 @@ static void recode_loop_decision_maker(PictureControlSet *pcs, SequenceControlSe
         if (scs->static_config.enable_adaptive_quantization == 2 && ppcs->tpl_ctrls.enable && ppcs->r0 != 0)
             svt_aom_sb_qp_derivation_tpl_la(pcs);
 
-        if (scs->static_config.enable_variance_boost && pcs->ppcs->frm_hdr.delta_q_params.delta_q_present) {
+        if (pcs->ppcs->frm_hdr.delta_q_params.delta_q_present && pcs->ppcs->frm_hdr.delta_q_params.delta_q_res != 1) {
             // adjust delta q res and normalize superblock delta q values to reduce signaling overhead
             svt_av1_normalize_sb_delta_q(pcs);
         }

@@ -351,7 +351,7 @@ static void inter_intra_search(PictureControlSet *pcs, ModeDecisionContext *ctx,
         //   continue;
         InterIntraMode interintra_mode = (InterIntraMode)j;
         // rmode = interintra_mode_cost[mbmi->interintra_mode];
-        const int bsize_group = size_group_lookup[ctx->blk_geom->bsize];
+        const int bsize_group = eb_size_group_lookup[ctx->blk_geom->bsize];
         const int rmode       = ctx->md_rate_est_ctx->inter_intra_mode_fac_bits[bsize_group][interintra_mode];
         // av1_combine_interintra(xd, bsize, 0, tmp_buf, bw, intrapred, bw);
         if (ctx->hbd_md)
@@ -906,6 +906,9 @@ static void inj_non_simple_modes(PictureControlSet *pcs, struct ModeDecisionCont
         if (motion_mode_valid)
             INC_MD_CAND_CNT(cand_count, pcs->ppcs->max_can_count);
     }
+#else
+    UNUSED(enable_wm);
+    UNUSED(enable_obmc);
 #endif // CONFIG_ENABLE_OBMC
 
     *total_cand_count = cand_count;

@@ -18,6 +18,16 @@
 #include "sequence_control_set.h"
 #include "utility.h"
 
+const int av1_get_tx_scale_tab[TX_SIZES_ALL] = {0, 0, 0, 1, 2, 0, 0, 0, 0, 1, 1, 2, 2, 0, 0, 0, 0, 1, 1};
+
+const TxSize get_txsize_entropy_ctx_tab[TX_SIZES_ALL] = {0, 1, 2, 3, 4, 1, 1, 2, 2, 3, 3, 4, 4, 1, 1, 2, 2, 3, 3};
+
+const int get_txb_bwl_tab[TX_SIZES_ALL] = {2, 3, 4, 5, 5, 2, 3, 3, 4, 4, 5, 5, 5, 2, 4, 3, 5, 4, 5};
+
+const int get_txb_wide_tab[TX_SIZES_ALL] = {4, 8, 16, 32, 32, 4, 8, 8, 16, 16, 32, 32, 32, 4, 16, 8, 32, 16, 32};
+
+const int get_txb_high_tab[TX_SIZES_ALL] = {4, 8, 16, 32, 32, 8, 4, 16, 8, 32, 16, 32, 32, 16, 4, 32, 8, 32, 16};
+
 void     svt_aom_residual_kernel(uint8_t *input, uint32_t input_offset, uint32_t input_stride, uint8_t *pred,
                                  uint32_t pred_offset, uint32_t pred_stride, int16_t *residual, uint32_t residual_offset,
                                  uint32_t residual_stride, bool hbd, uint32_t area_width, uint32_t area_height);
@@ -1122,7 +1132,7 @@ static void svt_fast_optimize_b(const TranLow *coeff_ptr, const MacroblockPlane 
                                 TranLow *dqcoeff_ptr, uint16_t *eob, TxSize tx_size, TxType tx_type)
 
 {
-    const ScanOrder *const scan_order = &av1_scan_orders[tx_size][tx_type];
+    const ScanOrder *const scan_order = get_scan_order(tx_size, tx_type);
     const int16_t         *scan       = scan_order->scan;
     const int              shift      = av1_get_tx_scale_tab[tx_size];
     update_coeff_eob_fast(eob, shift, p->dequant_qtx, scan, coeff_ptr, qcoeff_ptr, dqcoeff_ptr);
@@ -1139,7 +1149,7 @@ static void svt_av1_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
             (ctx->rdoq_ctrls.eob_fast_uv_intra && !is_inter && plane)
                             ? 1
                             : 0;
-    const ScanOrder *const scan_order = &av1_scan_orders[tx_size][tx_type];
+    const ScanOrder *const scan_order = get_scan_order(tx_size, tx_type);
     const int16_t         *scan       = scan_order->scan;
     const int              shift      = av1_get_tx_scale_tab[tx_size];
     const PlaneType        plane_type = plane;
@@ -1352,7 +1362,7 @@ void svt_aom_quantize_inv_quantize_light(PictureControlSet *pcs, int32_t *coeff,
 
     uint32_t q_index = qindex;
 
-    const ScanOrder *const scan_order = &av1_scan_orders[txsize][tx_type];
+    const ScanOrder *const scan_order = get_scan_order(txsize, tx_type);
 
     const int32_t n_coeffs = av1_get_max_eob(txsize);
 
@@ -1387,6 +1397,8 @@ void svt_aom_quantize_inv_quantize_light(PictureControlSet *pcs, int32_t *coeff,
                                       iq_matrix,
                                       av1_get_tx_scale_tab[txsize]);
         } else
+#else
+        UNUSED(bit_depth);
 #endif
         {
             svt_aom_quantize_b((TranLow *)coeff,
@@ -1555,7 +1567,7 @@ uint8_t svt_aom_quantize_inv_quantize(PictureControlSet *pcs, ModeDecisionContex
         }
     }
 
-    const ScanOrder *const scan_order = &av1_scan_orders[txsize][tx_type]; //get_scan(tx_size, tx_type);
+    const ScanOrder *const scan_order = get_scan_order(txsize, tx_type);
 
     const int32_t n_coeffs = av1_get_max_eob(txsize);
 

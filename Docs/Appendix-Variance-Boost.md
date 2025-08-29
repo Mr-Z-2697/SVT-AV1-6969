@@ -61,7 +61,7 @@ This option controls how many superblocks are boosted. It determines this based 
 
 Lower octile values are less efficient (more high contrast areas are boosted alongside low contrast areas, which inflates bitrate), while higher values are less visually consistent (fewer low contrast areas are boosted, which can create low quality area "holes" within superblocks).
 
-The default value is 6. Recommended values are between 4 and 7.
+The default value is 5. Recommended values are between 4 and 7.
 
 #### Example of varying the octile at QP 50
 
@@ -91,7 +91,7 @@ The default value is 6. Recommended values are between 4 and 7.
 ## Notes
 
 The feature settings that are described in this document were compiled at
-v3.1.0 of the code and may not reflect the current status of the code. The
+v3.1.2 of the code and may not reflect the current status of the code. The
 description in this document represents an example showing how features would
 interact with the SVT architecture. For the most up-to-date settings, it's
 recommended to review the section of the code implementing this feature.

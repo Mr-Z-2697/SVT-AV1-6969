@@ -71,47 +71,75 @@
 #endif
 
 
-#define CHECK_PTR_IS_NOT_SET(ptr)                                                             \
-    if (check_pointer_was_set && (uintptr_t)NULL != (uintptr_t)ptr) {                         \
-        printf("Error: %s:%i: Pointer \"%s\" is set before!\n", __FILE__, EB_LINE_NUM, #ptr); \
-        assert(0);                                                                            \
+#define CHECK_PTR_IS_NOT_SET(ptr)                                                         \
+    if (check_pointer_was_set && (uintptr_t)NULL != (uintptr_t)ptr) {                     \
+        SVT_ERROR("%s:%i: Pointer \"%s\" is set before!\n", __FILE__, EB_LINE_NUM, #ptr); \
+        assert(0);                                                                        \
     }
 
-#define CHECK_PTR_IS_SET(ptr)                                                                   \
-    if ((uintptr_t)NULL == (uintptr_t)ptr) {                                                    \
-        printf("Error: %s:%i: Pointer \"%s\" is not assigned!\n", __FILE__, EB_LINE_NUM, #ptr); \
-        assert(0);                                                                              \
+#define CHECK_PTR_IS_SET(ptr)                                                               \
+    if ((uintptr_t)NULL == (uintptr_t)ptr) {                                                \
+        SVT_ERROR("%s:%i: Pointer \"%s\" is not assigned!\n", __FILE__, EB_LINE_NUM, #ptr); \
+        assert(0);                                                                          \
     }
 
-#define SET_FUNCTION_C(ptr, c)                                                               \
-    if ((uintptr_t)NULL == (uintptr_t)c) {                                                   \
-        printf("Error: %s:%i: Pointer \"%s\" on C is NULL!\n", __FILE__, EB_LINE_NUM, #ptr); \
-        assert(0);                                                                           \
-    }                                                                                        \
+#define SET_FUNCTION_C(ptr, c)                                                           \
+    if ((uintptr_t)NULL == (uintptr_t)c) {                                               \
+        SVT_ERROR("%s:%i: Pointer \"%s\" on C is NULL!\n", __FILE__, EB_LINE_NUM, #ptr); \
+        assert(0);                                                                       \
+    }                                                                                    \
     ptr = c;
 
-#if CONFIG_ENABLE_C_FUNCTIONS
-#define MAYBE_SET_FUNCTION_C(ptr, c) SET_FUNCTION_C(ptr, c)
-#else
-#define MAYBE_SET_FUNCTION_C(ptr, c)
-#endif
-
 #ifdef ARCH_X86_64
+// general function dispatcher
 #define SET_FUNCTIONS(ptr, c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512)  \
     do {                                                                                       \
         CHECK_PTR_IS_NOT_SET(ptr)                                                              \
-        MAYBE_SET_FUNCTION_C(ptr, c)                                                           \
+        SET_FUNCTION_C(ptr, c)                                                                 \
         SET_FUNCTIONS_X86(ptr, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512) \
         CHECK_PTR_IS_SET(ptr)                                                                  \
     } while (0)
+
+// special case when any optimization up to AVX2 is available
+#if CONFIG_X86_AVX2_IS_GUARANTEED
+// when AVX2 is guaranteed to be available - we can skip C function assignment
+// and thus allow linker to strip C code from final binary to reduce size.
+#define SET_FUNCTIONS_AVX2(ptr, c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512) \
+    do {                                                                                           \
+        CHECK_PTR_IS_NOT_SET(ptr)                                                                  \
+        SET_FUNCTIONS_X86(ptr, neon, neon_dotprod, neon_i8mm, sve, sve2)                           \
+        CHECK_PTR_IS_SET(ptr)                                                                      \
+    } while (0)
+#else
+#define SET_FUNCTIONS_AVX2(ptr, c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512) \
+    SET_FUNCTIONS(ptr, c, mmx, sse, sse2, sse3, ssse3, sse4_1, sse4_2, avx, avx2, avx512)
+#endif
+
 #elif defined ARCH_AARCH64
+
+// general function dispatcher
 #define SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve)      \
     do {                                                    \
         CHECK_PTR_IS_NOT_SET(ptr)                           \
-        MAYBE_SET_FUNCTION_C(ptr, c)                        \
+        SET_FUNCTION_C(ptr, c)                              \
         SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, sve) \
         CHECK_PTR_IS_SET(ptr)                               \
     } while (0)
+
+// special case when Neon optimization is available
+#if CONFIG_ARM_NEON_IS_GUARANTEED
+// when Neon is guaranteed to be available - we can skip C function assignment
+// and thus allow linker to strip C code from final binary to reduce size.
+#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve) \
+    do {                                                    \
+        CHECK_PTR_IS_NOT_SET(ptr)                           \
+        SET_FUNCTIONS_AARCH64(ptr, neon, neon_dotprod, sve) \
+        CHECK_PTR_IS_SET(ptr)                               \
+    } while (0)
+#else
+#define SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve) \
+    SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve)
+#endif
 #endif
 
 #define SET_ONLY_C(ptr, c)        \
@@ -122,28 +150,28 @@
     } while (0)
 
 #ifdef ARCH_X86_64
-#define SET_SSE2(ptr, c, sse2)                                        SET_FUNCTIONS(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, 0, 0)
-#define SET_SSE2_SSSE3(ptr, c, sse2, ssse3)                           SET_FUNCTIONS(ptr, c, 0, 0, sse2, 0, ssse3, 0, 0, 0, 0, 0)
-#define SET_SSE2_AVX2(ptr, c, sse2, avx2)                             SET_FUNCTIONS(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, avx2, 0)
-#define SET_SSE2_AVX512(ptr, c, sse2, avx512)                         SET_FUNCTIONS(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, 0, avx512)
-#define SET_SSE2_SSSE3_AVX2_AVX512(ptr, c, sse2, ssse3, avx2, avx512) SET_FUNCTIONS(ptr, c, 0, 0, sse2, 0, ssse3, 0, 0, 0, avx2, avx512)
-#define SET_SSSE3(ptr, c, ssse3)                                      SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, ssse3, 0, 0, 0, 0, 0)
-#define SET_SSSE3_AVX2(ptr, c, ssse3, avx2)                           SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, ssse3, 0, 0, 0, avx2, 0)
-#define SET_SSE41(ptr, c, sse4_1)                                     SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, 0, 0)
-#define SET_SSE41_AVX2(ptr, c, sse4_1, avx2)                          SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, avx2, 0)
-#define SET_SSE41_AVX2_AVX512(ptr, c, sse4_1, avx2, avx512)           SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, avx2, avx512)
-#define SET_AVX2(ptr, c, avx2)                                        SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, 0)
-#define SET_AVX2_AVX512(ptr, c, avx2, avx512)                         SET_FUNCTIONS(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, avx512)
-#define SET_SSE2_AVX2_AVX512(ptr, c, sse2, avx2, avx512)              SET_FUNCTIONS(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, avx2, avx512)
+#define SET_SSE2(ptr, c, sse2)                                        SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, 0, 0)
+#define SET_SSE2_SSSE3(ptr, c, sse2, ssse3)                           SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, ssse3, 0, 0, 0, 0, 0)
+#define SET_SSE2_AVX2(ptr, c, sse2, avx2)                             SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, avx2, 0)
+#define SET_SSE2_AVX512(ptr, c, sse2, avx512)                         SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, 0, avx512)
+#define SET_SSE2_SSSE3_AVX2_AVX512(ptr, c, sse2, ssse3, avx2, avx512) SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, ssse3, 0, 0, 0, avx2, avx512)
+#define SET_SSSE3(ptr, c, ssse3)                                      SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, ssse3, 0, 0, 0, 0, 0)
+#define SET_SSSE3_AVX2(ptr, c, ssse3, avx2)                           SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, ssse3, 0, 0, 0, avx2, 0)
+#define SET_SSE41(ptr, c, sse4_1)                                     SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, 0, 0)
+#define SET_SSE41_AVX2(ptr, c, sse4_1, avx2)                          SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, avx2, 0)
+#define SET_SSE41_AVX2_AVX512(ptr, c, sse4_1, avx2, avx512)           SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, sse4_1, 0, 0, avx2, avx512)
+#define SET_AVX2(ptr, c, avx2)                                        SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, 0)
+#define SET_AVX2_AVX512(ptr, c, avx2, avx512)                         SET_FUNCTIONS_AVX2(ptr, c, 0, 0, 0, 0, 0, 0, 0, 0, avx2, avx512)
+#define SET_SSE2_AVX2_AVX512(ptr, c, sse2, avx2, avx512)              SET_FUNCTIONS_AVX2(ptr, c, 0, 0, sse2, 0, 0, 0, 0, 0, avx2, avx512)
 #elif defined ARCH_AARCH64
-#define SET_NEON(ptr, c, neon)                                        SET_FUNCTIONS(ptr, c, neon, 0, 0)
-#define SET_NEON_NEON_DOTPROD(ptr, c, neon, neon_dotprod)             SET_FUNCTIONS(ptr, c, neon, neon_dotprod, 0)
-#define SET_NEON_NEON_DOTPROD_SVE(ptr, c, neon, neon_dotprod, sve)    SET_FUNCTIONS(ptr, c, neon, neon_dotprod, sve)
-#define SET_NEON_SVE(ptr, c, neon, sve)                               SET_FUNCTIONS(ptr, c, neon, 0, sve)
+#define SET_NEON(ptr, c, neon)                                        SET_FUNCTIONS_NEON(ptr, c, neon, 0, 0)
+#define SET_NEON_NEON_DOTPROD(ptr, c, neon, neon_dotprod)             SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, 0)
+#define SET_NEON_NEON_DOTPROD_SVE(ptr, c, neon, neon_dotprod, sve)    SET_FUNCTIONS_NEON(ptr, c, neon, neon_dotprod, sve)
+#define SET_NEON_SVE(ptr, c, neon, sve)                               SET_FUNCTIONS_NEON(ptr, c, neon, 0, sve)
 #endif
 
 void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
-    /* Avoid check that pointer is set double, after first  setup. */
+    /* Avoid check that pointer is set double, after first setup. */
     static bool first_call_setup = true;
     bool        check_pointer_was_set = first_call_setup;
     first_call_setup = false;
@@ -856,8 +884,8 @@ void svt_aom_setup_rtcd_internal(EbCpuFlags flags) {
     SET_NEON(svt_search_one_dual, svt_search_one_dual_c, svt_search_one_dual_neon);
     SET_NEON_NEON_DOTPROD_SVE(svt_sad_loop_kernel, svt_sad_loop_kernel_c, svt_sad_loop_kernel_neon, svt_sad_loop_kernel_neon_dotprod, svt_sad_loop_kernel_sve);
     SET_NEON(svt_pme_sad_loop_kernel, svt_pme_sad_loop_kernel_c, svt_pme_sad_loop_kernel_neon);
-    SET_ONLY_C(svt_av1_apply_zz_based_temporal_filter_planewise_medium, svt_av1_apply_zz_based_temporal_filter_planewise_medium_c);
-    SET_ONLY_C(svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd, svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_c);
+    SET_NEON(svt_av1_apply_zz_based_temporal_filter_planewise_medium, svt_av1_apply_zz_based_temporal_filter_planewise_medium_c, svt_av1_apply_zz_based_temporal_filter_planewise_medium_neon);
+    SET_NEON(svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd, svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_c, svt_av1_apply_zz_based_temporal_filter_planewise_medium_hbd_neon);
     SET_NEON(svt_av1_apply_temporal_filter_planewise_medium, svt_av1_apply_temporal_filter_planewise_medium_c, svt_av1_apply_temporal_filter_planewise_medium_neon);
     SET_NEON(svt_av1_apply_temporal_filter_planewise_medium_hbd, svt_av1_apply_temporal_filter_planewise_medium_hbd_c, svt_av1_apply_temporal_filter_planewise_medium_hbd_neon);
     SET_NEON(get_final_filtered_pixels, svt_aom_get_final_filtered_pixels_c, svt_aom_get_final_filtered_pixels_neon);

@@ -2181,6 +2181,9 @@ void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet *pcs) 
 
     pcs->sc_class3 = pcs->sc_class1 || (count_palette * blk_area * 8 > area && count_intrabc * blk_area * 50 > area);
 
+    // Anti-alias aware SCM pre-dates the introduction of SC Class 4, so leave it disabled
+    pcs->sc_class4 = 0;
+
 #if DEBUG_AA_SCM
     fprintf(stats_file,
             "block count palette: %" PRId64 ", count intrabc: %" PRId64 ", count photo: %" PRId64 ", total: %d\n",
@@ -2197,11 +2200,12 @@ void svt_aom_is_screen_content_antialiasing_aware(PictureParentControlSet *pcs) 
             (count_intrabc - count_photo / 16) * blk_area * 12,
             area);
     fprintf(stats_file,
-            "is sc_class0: %d, is sc_class1: %d, is sc_class2: %d, is sc_class3: %d\n",
+            "is sc_class0: %d, is sc_class1: %d, is sc_class2: %d, is sc_class3: %d, is sc_class4: %d\n",
             pcs->sc_class0,
             pcs->sc_class1,
             pcs->sc_class2,
-            pcs->sc_class3);
+            pcs->sc_class3,
+            pcs->sc_class4);
 #endif
 }
 

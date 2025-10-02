@@ -176,7 +176,13 @@ Linux Sanitizer Compile:
     EXTRA_CMAKE_FLAGS: -DCMAKE_OUTPUT_DIRECTORY=$SANITIZER -DSANITIZER=$SANITIZER
   parallel:
     matrix:
-      - SANITIZER: [address, memory, thread, "signed-integer-overflow,unsigned-integer-overflow"]
+      - SANITIZER:
+          [
+            address,
+            memory,
+            thread,
+            "signed-integer-overflow,unsigned-integer-overflow",
+          ]
   artifacts:
     untracked: false
     expire_in: 1 days
@@ -205,9 +211,16 @@ Valgrind:
   parallel:
     matrix:
       - PASSES: 2
-      - PASS: [1, '']
+      - PASS: [1, ""]
         RC: [--rc 1 --tbr 500, -q 35]
-        REF_SCALE: [--resize-mode 0, --resize-mode 1, --resize-mode 2, --resize-mode 3, "--resize-mode 4 --frame-resz-events 1,3,6,8 --frame-resz-kf-denoms 8,9,10,11 --frame-resz-denoms 16,15,14,13"]
+        REF_SCALE:
+          [
+            --resize-mode 0,
+            --resize-mode 1,
+            --resize-mode 2,
+            --resize-mode 3,
+            "--resize-mode 4 --frame-resz-events 1,3,6,8 --frame-resz-kf-denoms 8,9,10,11 --frame-resz-denoms 16,15,14,13",
+          ]
   script:
     # --error-limit=no --leak-check=full --show-leak-kinds=all makes the log very huge and takes around 16 minutes
     - printf 'testing:\n'

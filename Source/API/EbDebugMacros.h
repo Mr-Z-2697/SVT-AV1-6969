@@ -115,6 +115,7 @@ extern "C" {
 #define TUNE_RTC_3L                 1 // Preset tuning 3L for RTC
 
 #define OPT_OPERATIONS              1 // Remove useless operations
+#define OPT_LOW_FRQ_CAP             1 // Limit rdoq to a fixed low-frequency cut-off (DC + first AC coefficients) and skip rdoq on all higher frequencies (the cut-off skips the tail, but not the first AC ring + EOB logic)
 
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one

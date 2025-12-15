@@ -6984,16 +6984,25 @@ static void set_intra_ctrls(PictureControlSet *pcs, ModeDecisionContext *ctx, ui
         ctrls->enable_intra       = 0;
         ctrls->intra_mode_end     = DC_PRED;
         ctrls->angular_pred_level = angular_pred_level[intra_level];
+#if OPT_INTRA_MODE_PRUNE
+        ctrls->prune_using_best_mode = 0;
+#endif
         break;
     case 1:
         ctrls->enable_intra       = 1;
         ctrls->intra_mode_end     = PAETH_PRED;
         ctrls->angular_pred_level = angular_pred_level[intra_level];
+#if OPT_INTRA_MODE_PRUNE
+        ctrls->prune_using_best_mode = 0;
+#endif
         break;
     case 2:
         ctrls->enable_intra       = 1;
         ctrls->intra_mode_end     = PAETH_PRED;
         ctrls->angular_pred_level = angular_pred_level[intra_level];
+#if OPT_INTRA_MODE_PRUNE
+        ctrls->prune_using_best_mode = 0;
+#endif
         // Only use TPL info if all INTRA modes are tested
         if (ppcs->tpl_ctrls.enable && ppcs->tpl_ctrls.intra_mode_end == PAETH_PRED) {
             int            sb_ang_intra_count;
@@ -7013,6 +7022,9 @@ static void set_intra_ctrls(PictureControlSet *pcs, ModeDecisionContext *ctx, ui
         ctrls->enable_intra       = 1;
         ctrls->intra_mode_end     = PAETH_PRED;
         ctrls->angular_pred_level = angular_pred_level[intra_level];
+#if OPT_INTRA_MODE_PRUNE
+        ctrls->prune_using_best_mode = 0;
+#endif
         // Only use TPL info if all INTRA modes are tested
         if (ppcs->tpl_ctrls.enable && ppcs->tpl_ctrls.intra_mode_end == PAETH_PRED) {
             int            sb_ang_intra_count;
@@ -7033,6 +7045,9 @@ static void set_intra_ctrls(PictureControlSet *pcs, ModeDecisionContext *ctx, ui
         ctrls->enable_intra       = 1;
         ctrls->intra_mode_end     = SMOOTH_H_PRED;
         ctrls->angular_pred_level = angular_pred_level[intra_level];
+#if OPT_INTRA_MODE_PRUNE
+        ctrls->prune_using_best_mode = 0;
+#endif
         // Only use TPL info if all INTRA modes are tested
         if (ppcs->tpl_ctrls.enable && ppcs->tpl_ctrls.intra_mode_end == PAETH_PRED) {
             int            sb_ang_intra_count;
@@ -7063,6 +7078,9 @@ static void set_intra_ctrls(PictureControlSet *pcs, ModeDecisionContext *ctx, ui
         ctrls->enable_intra       = 1;
         ctrls->intra_mode_end     = SMOOTH_PRED;
         ctrls->angular_pred_level = angular_pred_level[intra_level];
+#if OPT_INTRA_MODE_PRUNE
+        ctrls->prune_using_best_mode = 1;
+#endif
         // There is no check that all TPL modes are checked, so should only use info about
         // general intra modes, not the specific intra mode selected or whether it's angular
         if (ppcs->tpl_ctrls.enable) {
@@ -7084,11 +7102,17 @@ static void set_intra_ctrls(PictureControlSet *pcs, ModeDecisionContext *ctx, ui
         ctrls->enable_intra       = 1;
         ctrls->intra_mode_end     = SMOOTH_PRED;
         ctrls->angular_pred_level = angular_pred_level[intra_level];
+#if OPT_INTRA_MODE_PRUNE
+        ctrls->prune_using_best_mode = 1;
+#endif
         break;
     case MAX_INTRA_LEVEL - 1:
         ctrls->enable_intra       = 1;
         ctrls->intra_mode_end     = DC_PRED;
         ctrls->angular_pred_level = angular_pred_level[intra_level];
+#if OPT_INTRA_MODE_PRUNE
+        ctrls->prune_using_best_mode = 1;
+#endif
         break;
     default: assert(0); break;
     }

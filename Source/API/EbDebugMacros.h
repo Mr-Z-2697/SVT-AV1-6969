@@ -114,6 +114,8 @@ extern "C" {
 #define TUNE_RTC_FLAT               1 // Preset tuning flat for RTC
 #define TUNE_RTC_3L                 1 // Preset tuning 3L for RTC
 
+#define OPT_OPERATIONS              1 // Remove useless operations
+
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one
 #define DEBUG_TPL               0 // Prints to debug TPL

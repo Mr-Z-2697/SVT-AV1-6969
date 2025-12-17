@@ -120,6 +120,10 @@ void svt_av1_build_quantizer(PictureParentControlSet *pcs, EbBitDepth bit_depth,
         int           diff          = q - pcs->frm_hdr.quantization_params.base_q_idx;
         const int32_t sharpness_val = pcs->scs->static_config.sharpness;
 
+        // cppcheck claims that the second condition is always false, giving the deduction that diff is always < 1.
+        // However, it bases it off `q=0` (and I presume it's deduction would also apply to `q=1`) and ignores the loop
+        // over all q's.
+        // cppcheck-suppress knownConditionTrueFalse
         if ((sharpness_val > 0 && diff < 0) || (sharpness_val < 0 && diff > 0)) {
             int32_t offset = sharpness_val > 0 ? MAX(sharpness_val << 1, abs(diff))
                                                : MIN(abs(sharpness_val) << 1, diff);
@@ -716,7 +720,7 @@ static void set_frame_coeff_lvl(PictureControlSet *pcs) {
     uint64_t coeff_vlow_level_th = COEFF_LVL_TH_0;
     uint64_t coeff_low_level_th  = COEFF_LVL_TH_1;
     uint64_t coeff_high_level_th = COEFF_LVL_TH_2;
-    if (pcs->ppcs->input_resolution <= INPUT_SIZE_240p_RANGE) {
+    if (pcs->ppcs->input_resolution == INPUT_SIZE_240p_RANGE) {
         coeff_vlow_level_th = (uint64_t)((double)coeff_vlow_level_th * 1.7);
         coeff_low_level_th  = (uint64_t)((double)coeff_low_level_th * 1.7);
         coeff_high_level_th = (uint64_t)((double)coeff_high_level_th * 1.7);
@@ -781,12 +785,12 @@ static void update_cdef_filters_on_ref_info(PictureControlSet *pcs) {
                 }
             }
 #if TUNE_RTC_RA_PRESETS
-            int8_t mid_filter     = MIN(63, MAX(0, (lowest_sg + highest_sg) / 2));
+            int8_t mid_filter     = MIN(63, (lowest_sg + highest_sg) / 2);
             cdef_ctrls->pred_y_f  = mid_filter;
             cdef_ctrls->pred_uv_f = 0;
 #else
             if (rtc_tune) {
-                int8_t mid_filter     = MIN(63, MAX(0, MAX(lowest_sg, highest_sg)));
+                int8_t mid_filter     = MIN(63, MAX(lowest_sg, highest_sg));
                 cdef_ctrls->pred_y_f  = mid_filter;
                 cdef_ctrls->pred_uv_f = 0;
             } else {
@@ -1061,9 +1065,7 @@ void *svt_aom_mode_decision_configuration_kernel(void *input_ptr) {
             SpeedFeatures *sf    = &pcs->sf;
 
             const int mesh_speed           = AOMMIN(speed, MAX_MESH_SPEED);
-            sf->exhaustive_searches_thresh = (1 << 25);
-            if (mesh_speed > 0)
-                sf->exhaustive_searches_thresh = sf->exhaustive_searches_thresh << 1;
+            sf->exhaustive_searches_thresh = (1 << 25) << 1;
 
             for (i = 0; i < MAX_MESH_STEP; ++i) {
                 sf->mesh_patterns[i].range    = good_quality_mesh_patterns[mesh_speed][i].range;

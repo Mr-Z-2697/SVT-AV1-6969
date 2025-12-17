@@ -1807,10 +1807,10 @@ uint8_t svt_aom_wm_motion_refinement(PictureControlSet *pcs, ModeDecisionContext
         {{0, 0}}, {{-1, 0}}, {{0, 1}}, {{1, 0}}, {{0, -1}}, {{1, -1}}, {{1, 1}}, {{-1, 1}}, {{-1, -1}}};
 
     // Set info used to get MV cost
-    int     *mvjcost       = ctx->md_rate_est_ctx->nmv_vec_cost;
-    int    **mvcost        = ctx->md_rate_est_ctx->nmvcoststack;
-    uint32_t full_lambda   = ctx->full_lambda_md[EB_8_BIT_MD]; // 8bit only
-    int      error_per_bit = full_lambda >> RD_EPB_SHIFT;
+    int        *mvjcost       = ctx->md_rate_est_ctx->nmv_vec_cost;
+    const int **mvcost        = ctx->md_rate_est_ctx->nmvcoststack;
+    uint32_t    full_lambda   = ctx->full_lambda_md[EB_8_BIT_MD]; // 8bit only
+    int         error_per_bit = full_lambda >> RD_EPB_SHIFT;
     error_per_bit += (error_per_bit == 0);
     uint32_t             blk_origin_index   = ctx->blk_geom->org_x + ctx->blk_geom->org_y * ctx->sb_size;
     EbPictureBufferDesc *input_pic          = ppcs->enhanced_pic; // 10BIT not supported
@@ -3917,14 +3917,10 @@ uint32_t svt_aom_product_full_mode_decision(
         if (!cand->palette_info)
             blk_ptr->palette_size[0] = blk_ptr->palette_size[1] = 0;
         else if (svt_av1_allow_palette(ctx->md_palette_level, ctx->blk_geom->bsize)) {
-            if (cand->palette_info) {
-                memcpy(&blk_ptr->palette_info->pmi, &cand->palette_info->pmi, sizeof(PaletteModeInfo));
-                memcpy(blk_ptr->palette_info->color_idx_map, cand->palette_info->color_idx_map, MAX_PALETTE_SQUARE);
-                blk_ptr->palette_size[0] = cand->palette_size [0];
-                blk_ptr->palette_size[1] = cand->palette_size [1];
-            }
-            else
-                memset(blk_ptr->palette_info->color_idx_map, 0, MAX_PALETTE_SQUARE);
+            memcpy(&blk_ptr->palette_info->pmi, &cand->palette_info->pmi, sizeof(PaletteModeInfo));
+            memcpy(blk_ptr->palette_info->color_idx_map, cand->palette_info->color_idx_map, MAX_PALETTE_SQUARE);
+            blk_ptr->palette_size[0] = cand->palette_size [0];
+            blk_ptr->palette_size[1] = cand->palette_size [1];
         }
 
         if (blk_ptr->block_mi.use_intrabc == 0) {

@@ -1674,7 +1674,7 @@ static void md_stage_0_light_pd1(PictureControlSet *pcs, ModeDecisionContext *ct
 // Function will only be applicate to classes which use multiple iterations
 static bool process_cand_itr(ModeDecisionContext *ctx, ModeDecisionCandidate *cand, uint8_t itr,
                              PredictionMode best_reg_intra_mode, uint64_t best_reg_intra_cost,
-                             uint64_t regular_intra_cost[PAETH_PRED + 1]) {
+                             const uint64_t regular_intra_cost[PAETH_PRED + 1]) {
     if (itr == 0) {
         if (ctx->cand_reduction_ctrls.reduce_filter_intra &&
             (ctx->intra_ctrls.skip_angular_delta1_th != -1 || ctx->intra_ctrls.skip_angular_delta2_th != -1 ||
@@ -3104,8 +3104,12 @@ static void build_single_ref_mvp_array(PictureControlSet *pcs, ModeDecisionConte
 
             for (int drli = 0; drli < max_drl_index; drli++) {
                 Mv nearmv = ctx->ref_mv_stack[frame_type][1 + drli].this_mv;
-                nearmv.x  = (nearmv.x + 4) & ~0x07;
-                nearmv.y  = (nearmv.y + 4) & ~0x07;
+                // cppcheck doesn't work well when the rhs and lhs have the same union
+                // store temp values before reassigning
+                const int16_t x = (nearmv.x + 4) & ~0x07;
+                const int16_t y = (nearmv.y + 4) & ~0x07;
+                nearmv.x        = x;
+                nearmv.y        = y;
                 clip_mv_on_pic_boundary(
                     ctx->blk_org_x, ctx->blk_org_y, blk_geom->bwidth, blk_geom->bheight, ref_pic, &nearmv.x, &nearmv.y);
 
@@ -3169,7 +3173,7 @@ static void pme_search(PictureControlSet *pcs, ModeDecisionContext *ctx, EbPictu
         full_pel_search_width  = MAX(3, DIVIDE_AND_ROUND(full_pel_search_width * q_weight, q_weight_denom));
         full_pel_search_height = MAX(3, DIVIDE_AND_ROUND(full_pel_search_height * q_weight, q_weight_denom));
     }
-    input_pic = hbd_md ? pcs->input_frame16bit : pcs->ppcs->enhanced_pic;
+    input_pic = pcs->ppcs->enhanced_pic;
 
     uint32_t input_origin_index = (ctx->blk_org_y + input_pic->org_y) * input_pic->stride_y +
         (ctx->blk_org_x + input_pic->org_x);
@@ -8646,8 +8650,8 @@ static void lpd1_tx_shortcut_detector(PictureControlSet *pcs, ModeDecisionContex
                 int              num_ref_frame_pair_match = match_ref_frame_pair(left_mi, rf);
                 num_ref_frame_pair_match += match_ref_frame_pair(above_mi, rf);
 
-                uint16_t use_tx_shortcuts_mds3_mult  = 2 * ctx->lpd1_tx_ctrls.use_neighbour_info; // is halved below
-                uint16_t lpd1_allow_skipping_tx_mult = 2 * ctx->lpd1_tx_ctrls.use_neighbour_info; // is halved below
+                uint16_t use_tx_shortcuts_mds3_mult  = 2 * ctx->lpd1_tx_ctrls.use_neighbour_info,
+                         lpd1_allow_skipping_tx_mult = use_tx_shortcuts_mds3_mult; // is halved below
 
                 if (num_ref_frame_pair_match == 2) {
                     if (left_mi->mode == cand->block_mi.mode && above_mi->mode == cand->block_mi.mode) {
@@ -9994,8 +9998,7 @@ static void check_curr_to_parent_cost(SequenceControlSet *scs, PictureControlSet
         uint64_t parent_depth_cost = 0, current_depth_cost = 0;
 
         // from a given child index, derive the index of the parent
-        uint32_t parent_depth_idx_mds = blk_geom->parent_depth_idx_mds;
-        assert(parent_depth_idx_mds == blk_geom->parent_depth_idx_mds);
+        const uint32_t parent_depth_idx_mds = blk_geom->parent_depth_idx_mds;
         if ((pcs->slice_type == I_SLICE && parent_depth_idx_mds == 0 && scs->seq_header.sb_size == BLOCK_128X128) ||
             !ctx->cost_avail[parent_depth_idx_mds])
             parent_depth_cost = MAX_MODE_COST;

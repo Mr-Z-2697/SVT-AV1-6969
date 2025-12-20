@@ -1727,10 +1727,22 @@ static uint8_t get_dlf_level(PictureControlSet *pcs, EncMode enc_mode, uint8_t i
                     dlf_level       = 5;
                     modulation_mode = 3;
                 }
+#if OPT_FD1_FD2_STILL_IMAGE
+            } else {
+                if (enc_mode <= ENC_M9) {
+                    dlf_level       = 0;
+                    modulation_mode = 3;
+                } else {
+                    dlf_level       = 5;
+                    modulation_mode = 3;
+                }
+            }
+#else
             } else {
                 dlf_level       = 0;
                 modulation_mode = 3;
             }
+#endif
 #else
         if ((fast_decode == 0 || resolution <= INPUT_SIZE_360p_RANGE) &&
             (pcs->scs->input_resolution <= INPUT_SIZE_1080p_RANGE)) {
@@ -2382,11 +2394,29 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
                 cdef_recon_level = 0;
             else
                 cdef_recon_level = 1;
+#if OPT_FD1_FD2_STILL_IMAGE
+        } else if (fast_decode == 1) {
+            if ((enc_mode <= ENC_M9) || (enc_mode == ENC_M12)) {
+                cdef_recon_level = 1;
+            } else {
+                cdef_recon_level = 3;
+            }
+        } else {
+            if (enc_mode <= ENC_M9) {
+                cdef_recon_level = 4;
+            } else if (enc_mode <= ENC_M11) {
+                cdef_recon_level = 3;
+            } else {
+                cdef_recon_level = 1;
+            }
+        }
+#else
         } else if (fast_decode == 1) {
             cdef_recon_level = 1;
         } else {
             cdef_recon_level = 4;
         }
+#endif
 #else
         if (enc_mode <= ENC_M9)
             cdef_recon_level = 0;
@@ -9553,23 +9583,9 @@ static void set_pic_lpd0_lvl(PictureControlSet *pcs, EncMode enc_mode) {
         } else if (enc_mode <= ENC_M9) {
             pcs->pic_lpd0_lvl = 1;
         } else if (enc_mode <= ENC_M11) {
-            if (input_resolution <= INPUT_SIZE_360p_RANGE)
-                pcs->pic_lpd0_lvl = 3;
-            else if (input_resolution <= INPUT_SIZE_480p_RANGE)
-                pcs->pic_lpd0_lvl = (is_base || transition_present) ? 3 : 5;
-            else {
-                if (coeff_lvl == HIGH_LVL)
-                    pcs->pic_lpd0_lvl = (is_base || transition_present) ? 7 : 8;
-                else if (coeff_lvl == NORMAL_LVL)
-                    pcs->pic_lpd0_lvl = (is_base || transition_present) ? 4 : 6;
-                else
-                    pcs->pic_lpd0_lvl = (is_base || transition_present) ? 3 : 5;
-            }
+            pcs->pic_lpd0_lvl = 3;
         } else {
-            if (coeff_lvl == HIGH_LVL)
-                pcs->pic_lpd0_lvl = 7;
-            else
-                pcs->pic_lpd0_lvl = (is_islice || transition_present) ? 6 : 7;
+            pcs->pic_lpd0_lvl = 6;
         }
 #else
         if (enc_mode <= ENC_M3) {

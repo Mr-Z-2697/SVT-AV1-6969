@@ -3898,7 +3898,7 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet *scs) {
             scs->qp_based_th_scaling_ctrls.cap_max_size_qp_based_th_scaling = 0;
 #endif
 #if OPT_LPD0_PER_BLK
-            scs->qp_based_th_scaling_ctrls.var_ski_sub_depth_qp_based_th_scaling = 0;
+            scs->qp_based_th_scaling_ctrls.var_skip_sub_depth_qp_based_th_scaling = 0;
 #endif
 #if TUNE_STILL_IMAGE_1
         } else if (scs->static_config.enc_mode <= ENC_M5) {
@@ -3922,7 +3922,7 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet *scs) {
             scs->qp_based_th_scaling_ctrls.cap_max_size_qp_based_th_scaling = 0;
 #endif
 #if OPT_LPD0_PER_BLK
-            scs->qp_based_th_scaling_ctrls.var_ski_sub_depth_qp_based_th_scaling = 0;
+            scs->qp_based_th_scaling_ctrls.var_skip_sub_depth_qp_based_th_scaling = 0;
 #endif
 #else
         if (scs->static_config.enc_mode <= ENC_M3) {
@@ -3955,7 +3955,7 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet *scs) {
             scs->qp_based_th_scaling_ctrls.cap_max_size_qp_based_th_scaling = 1;
 #endif
 #if OPT_LPD0_PER_BLK
-            scs->qp_based_th_scaling_ctrls.var_ski_sub_depth_qp_based_th_scaling = 1;
+            scs->qp_based_th_scaling_ctrls.var_skip_sub_depth_qp_based_th_scaling = 1;
 #endif
         }
     }
@@ -3978,7 +3978,7 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet *scs) {
             scs->qp_based_th_scaling_ctrls.cap_max_size_qp_based_th_scaling = 0;
 #endif
 #if OPT_LPD0_PER_BLK
-            scs->qp_based_th_scaling_ctrls.var_ski_sub_depth_qp_based_th_scaling = 0;
+            scs->qp_based_th_scaling_ctrls.var_skip_sub_depth_qp_based_th_scaling = 0;
 #endif
         } else {
             scs->qp_based_th_scaling_ctrls.tf_me_qp_based_th_scaling       = 1;
@@ -3998,7 +3998,7 @@ void set_qp_based_th_scaling_ctrls(SequenceControlSet *scs) {
             scs->qp_based_th_scaling_ctrls.cap_max_size_qp_based_th_scaling = 0;
 #endif
 #if OPT_LPD0_PER_BLK
-            scs->qp_based_th_scaling_ctrls.var_ski_sub_depth_qp_based_th_scaling = 0;
+            scs->qp_based_th_scaling_ctrls.var_skip_sub_depth_qp_based_th_scaling = 0;
 #endif
         }
     }
@@ -4888,9 +4888,16 @@ static void copy_api_from_app(SequenceControlSet *scs, EbSvtAv1EncConfiguration 
     scs->is_16bit_pipeline = ((config_struct->encoder_bit_depth) > EB_EIGHT_BIT) ? true: false;
     scs->subsampling_x = (scs->chroma_format_idc == EB_YUV444 ? 0 : 1);
     scs->subsampling_y = (scs->chroma_format_idc >= EB_YUV422 ? 0 : 1);
+#if DIS_SC_ALL_INTRA
+    // Force screen-content detection OFF when allintra
+    scs->static_config.screen_content_mode = scs->allintra
+        ? 0 :
+        config_struct->screen_content_mode;
+#else
     // Thresholds
     scs->static_config.screen_content_mode = config_struct->screen_content_mode;
 
+#endif
     // Annex A parameters
     scs->static_config.profile = config_struct->profile;
     scs->static_config.tier = config_struct->tier;

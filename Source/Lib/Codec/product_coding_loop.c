@@ -10475,7 +10475,7 @@ static bool var_skip_sub_depth(PictureControlSet *pcs, ModeDecisionContext *ctx)
     uint32_t coeff_perc            = (count_non_zero_coeffs * 100) / total_samples;
 
     uint32_t q_weight, q_weight_denom;
-    svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.var_ski_sub_depth_qp_based_th_scaling,
+    svt_aom_get_qp_based_th_scaling_factors(pcs->scs->qp_based_th_scaling_ctrls.var_skip_sub_depth_qp_based_th_scaling,
                                             &q_weight,
                                             &q_weight_denom,
                                             pcs->scs->static_config.qp);

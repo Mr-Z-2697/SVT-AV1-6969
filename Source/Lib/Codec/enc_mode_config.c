@@ -9530,16 +9530,20 @@ uint8_t svt_aom_get_chroma_level(EncMode enc_mode, const uint8_t is_islice) {
             chroma_level = 4;
         else
             chroma_level = 5;
-    } else {
+    } else { //DNC
 #endif
         if (enc_mode <= ENC_MR)
             chroma_level = 1;
         else if (enc_mode <= ENC_M0)
             chroma_level = is_islice ? 1 : 4;
+#if OPT_CHROMA_CFL_LVLS
+        else if (enc_mode <= ENC_M5)
+#else
 #if TUNE_RTC_RA_PRESETS_2
         else if (enc_mode <= ENC_M3)
 #else
         else if (enc_mode <= ENC_M5)
+#endif
 #endif
             chroma_level = 4;
         else
@@ -10530,7 +10534,7 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
     // Set the level for cfl
     pcs->cfl_level = 0;
 #if OPT_MD_SIGNALS
-    if (sc_class1) {
+    if (sc_class1) { //DNC
         if (enc_mode <= ENC_M6)
             pcs->cfl_level = 1;
         else
@@ -10583,7 +10587,11 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
         }
     } else if (enc_mode <= ENC_M1)
         pcs->cfl_level = 1;
+#if OPT_CHROMA_CFL_LVLS
+    else if ((rtc_tune && enc_mode <= ENC_M6) || (!rtc_tune && enc_mode <= ENC_M9))
+#else
     else if (enc_mode <= ENC_M6)
+#endif
         pcs->cfl_level = is_base ? 2 : 0;
     else
         pcs->cfl_level = is_islice ? 2 : 0;

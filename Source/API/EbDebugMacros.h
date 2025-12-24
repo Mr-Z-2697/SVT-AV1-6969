@@ -129,6 +129,11 @@ extern "C" {
 #define TUNE_M9_M10_STILL_IMAGE     1 // Tune M9 and M10 for still image
 #define TUNE_M12_M4_STILL_IMAGE     1 // Tune M12 to M4 for still image
 #define TUNE_M1_STILL_IMAGE         1 // Tune M1 for still image
+#define CLN_DLF_LVL                 1 // Cleaning the dlf_level kernels by seperating it into 3 sections: RTC FLAT/RTC Non-FLAT/Else
+#define CLN_NIC_LVL                 1 // Cleaning the dlf_level kernels by seperating it into 3 sections: RTC FLAT/RTC Non-FLAT/Else
+#define TUNE_M7_RA_FIX_REG          1 // Reversing adoptions to fix M7 RA regression compared to v3.1.0
+#define TUNE_M8_RA_FIX_REG          1 // Reversing adoptions to fix M8 RA regression compared to v3.1.0
+#define TUNE_M9_RA_FIX_REG          1 // Reversing adoptions to fix M9 RA regression compared to v3.1.0
 
 //FOR DEBUGGING - Do not remove
 #define LOG_ENC_DONE            0 // log encoder job one

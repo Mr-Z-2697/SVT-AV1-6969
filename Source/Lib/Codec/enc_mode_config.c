@@ -416,9 +416,23 @@ static void set_me_search_params(SequenceControlSet *scs, PictureParentControlSe
     } else if (enc_mode <= ENC_M5) {
         me_ctx->me_sa.sa_min = (SearchArea){24, 12};
         me_ctx->me_sa.sa_max = (SearchArea){48, 32};
+#if TUNE_M7_RA_FIX_REG
+    } else if (enc_mode <= ENC_M6) {
+        me_ctx->me_sa.sa_min = (SearchArea){24, 9};
+        me_ctx->me_sa.sa_max = (SearchArea){24, 12};
+    } else if (enc_mode <= ENC_M7) {
+        me_ctx->me_sa.sa_min = (SearchArea){16, 8};
+        me_ctx->me_sa.sa_max = (SearchArea){32, 16};
+#else
     } else if (enc_mode <= ENC_M7) {
         me_ctx->me_sa.sa_min = (SearchArea){24, 9};
         me_ctx->me_sa.sa_max = (SearchArea){24, 12};
+#endif
+#if TUNE_M8_RA_FIX_REG
+    } else if (enc_mode <= ENC_M8) {
+        me_ctx->me_sa.sa_min = (SearchArea){16, 6};
+        me_ctx->me_sa.sa_max = (SearchArea){24, 12};
+#endif
     } else if (enc_mode <= ENC_M10) {
         if (input_resolution < INPUT_SIZE_720p_RANGE) {
             me_ctx->me_sa.sa_min = (SearchArea){12, 4};
@@ -897,6 +911,9 @@ void svt_aom_sig_deriv_me(SequenceControlSet *scs, PictureParentControlSet *pcs,
     EbInputResolution input_resolution = scs->input_resolution;
     const bool        rtc_tune         = scs->static_config.rtc;
     const bool        is_base          = pcs->temporal_layer_index == 0;
+#if TUNE_M8_RA_FIX_REG
+    const bool flat_rtc                = rtc_tune && scs->use_flat_ipp;
+#endif
     // Set ME search area
     set_me_search_params(scs, pcs, me_ctx, input_resolution);
 
@@ -943,6 +960,35 @@ void svt_aom_sig_deriv_me(SequenceControlSet *scs, PictureParentControlSet *pcs,
     uint8_t prehme_level = 0;
     if (sc_class1)
         prehme_level = rtc_tune ? 1 : 2;
+#if TUNE_M8_RA_FIX_REG
+    else if (flat_rtc) {
+        if (enc_mode <= ENC_M8)
+            prehme_level = 2;
+        else if (enc_mode <= ENC_M11)
+            prehme_level = 4;
+        else
+            prehme_level = 0;
+    } else if (rtc_tune) {
+        if (enc_mode <= ENC_M8)
+            prehme_level = 2;
+        else if (enc_mode <= ENC_M10)
+            prehme_level = 4;
+        else
+            prehme_level = 0;
+    } else {
+#if TUNE_M8_RA_FIX_REG
+        if (enc_mode <= ENC_M7)
+            prehme_level = 2;
+#else
+        if (enc_mode <= ENC_M8)
+            prehme_level = 2;
+#endif
+        else if (enc_mode <= ENC_M11)
+            prehme_level = 4;
+        else
+            prehme_level = 0;
+    }
+#else
 #if TUNE_RTC_RA_PRESETS
     else {
 #if TUNE_RTC_RA_PRESETS_2
@@ -979,6 +1025,7 @@ void svt_aom_sig_deriv_me(SequenceControlSet *scs, PictureParentControlSet *pcs,
         else
             prehme_level = 4;
     }
+#endif
 #endif
     if (pcs->enable_hme_level1_flag == 0)
         prehme_level = 0;
@@ -1700,6 +1747,10 @@ static uint8_t get_dlf_level(PictureControlSet *pcs, EncMode enc_mode, uint8_t i
     const uint8_t sc_class1       = pcs->ppcs->sc_class1;
     uint8_t       dlf_level       = 0;
     uint8_t       modulation_mode = 0; // 0: off, 1: only towards bd-rate, 2: both sides; , 3: only towards speed
+#if CLN_DLF_LVL
+    const bool rtc_tune = pcs->scs->static_config.rtc;
+    const bool flat_rtc = rtc_tune && pcs->scs->use_flat_ipp;
+#endif
 
     if (allintra) {
 #if OPT_FD2_FD1_STILL_IMAGE
@@ -1769,6 +1820,58 @@ static uint8_t get_dlf_level(PictureControlSet *pcs, EncMode enc_mode, uint8_t i
                 modulation_mode = 3;
             }
         }
+#if CLN_DLF_LVL
+    } else if (flat_rtc) { // RTC FLAT
+        if (enc_mode <= ENC_M9) {
+            dlf_level       = 6;
+            modulation_mode = 3;
+        }
+        else if (enc_mode <= ENC_M10) {
+            dlf_level       = is_not_last_layer ? 6 : 0;
+            modulation_mode = 3;
+        }
+        else {
+            dlf_level       = 0;
+            modulation_mode = 3;
+        }
+    } else if (rtc_tune) { // RTC Non-FLAT
+        if (enc_mode <= ENC_M7) {
+            dlf_level       = 6;
+            modulation_mode = 3;
+        } else if (enc_mode <= ENC_M9) {
+            dlf_level       = is_not_last_layer ? 6 : 0;
+            modulation_mode = 3;
+        } else {
+            dlf_level       = 0;
+            modulation_mode = 3;
+        }
+    } else if (fast_decode <= 1 || resolution <= INPUT_SIZE_360p_RANGE) { // fast-decode 0 && fast-decode 1
+        if (enc_mode <= ENC_M0) {
+            dlf_level = 1;
+        } else if ((!sc_class1 && enc_mode <= ENC_M3) || (sc_class1 && enc_mode <= ENC_M4)) {
+            dlf_level = 2;
+        } else if (enc_mode <= ENC_M5) {
+            dlf_level = is_not_last_layer ? 3 : 6;
+        } else if (enc_mode <= ENC_M6) {
+            dlf_level = 4;
+        } else if (enc_mode <= ENC_M7) {
+#if TUNE_M7_RA_FIX_REG
+            dlf_level = is_not_last_layer ? 3 : 6;
+#else
+            dlf_level       = 6;
+#endif
+            modulation_mode = 3;
+        } else if (enc_mode <= ENC_M10) {
+            dlf_level       = is_not_last_layer ? 6 : 0;
+            modulation_mode = 3;
+        } else if (enc_mode <= ENC_M11) {
+            dlf_level       = is_not_last_layer ? 7 : 0;
+            modulation_mode = 3;
+        } else {
+            dlf_level       = 0;
+            modulation_mode = 3;
+        }
+#else
     } else if (fast_decode <= 1 || resolution <= INPUT_SIZE_360p_RANGE) {
         if (enc_mode <= ENC_M0)
             dlf_level = 1;
@@ -1807,7 +1910,8 @@ static uint8_t get_dlf_level(PictureControlSet *pcs, EncMode enc_mode, uint8_t i
             dlf_level       = 0;
             modulation_mode = 3;
         }
-    } else {
+#endif
+    } else { // fast-decode 2
         if (enc_mode <= ENC_M6) {
             dlf_level = 4;
         } else if (enc_mode <= ENC_M7) {
@@ -2150,6 +2254,9 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
 #if TUNE_STILL_IMAGE_0
     const bool allintra = scs->allintra;
 #endif
+#if TUNE_M7_RA_FIX_REG
+    const bool flat_rtc = rtc_tune && scs->use_flat_ipp;
+#endif
     // Set GM ctrls assuming super-res is off for gm-pp need
     svt_aom_set_gm_controls(pcs, svt_aom_derive_gm_level(pcs, true));
 
@@ -2165,7 +2272,7 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
         pcs->enable_hme_level1_flag = 1;
         pcs->enable_hme_level2_flag = 1;
 #if TUNE_RTC_3L
-    } else if ((!scs->use_flat_ipp && enc_mode <= ENC_M12) || (scs->use_flat_ipp && enc_mode <= ENC_M11)) {
+    } else if ((!flat_rtc && enc_mode <= ENC_M12) || (flat_rtc && enc_mode <= ENC_M11)) {
 #else
     } else if (enc_mode <= ENC_M11) {
 #endif
@@ -2222,7 +2329,11 @@ void svt_aom_sig_deriv_multi_processes(SequenceControlSet *scs, PictureParentCon
 #if TUNE_RTC_RA_PRESETS
         if (enc_mode <= ENC_M1)
             intrabc_level = 1;
+#if TUNE_M7_RA_FIX_REG
+        else if (enc_mode <= ENC_M6 || (!allintra && !rtc_tune && enc_mode <= ENC_M7))
+#else
         else if (enc_mode <= ENC_M6)
+#endif
             intrabc_level = 6;
         else
             intrabc_level = 0;
@@ -4961,7 +5072,9 @@ void svt_aom_set_wm_controls(ModeDecisionContext *ctx, uint8_t wm_level) {
 uint8_t svt_aom_get_nic_level(SequenceControlSet *scs, EncMode enc_mode, uint8_t is_base, bool rtc_tune,
                               uint8_t sc_class1) {
     uint8_t nic_level;
-
+#if CLN_NIC_LVL
+    const bool flat_rtc = rtc_tune && scs->use_flat_ipp;
+#endif
     if (scs->allintra) {
         if (scs->input_resolution <= INPUT_SIZE_1080p_RANGE) {
             if (enc_mode <= ENC_MR)
@@ -5037,6 +5150,48 @@ uint8_t svt_aom_get_nic_level(SequenceControlSet *scs, EncMode enc_mode, uint8_t
             else
                 nic_level = 11;
         }
+#if CLN_NIC_LVL
+    } else if (flat_rtc) { // FLAT-RTC
+        if (enc_mode <= ENC_M7)
+            nic_level = 8;
+        else if (enc_mode <= ENC_M8)
+            nic_level = 9;
+        else
+            nic_level = 11;
+    } else if (rtc_tune) { // Non-FLAT RTC
+        if (enc_mode <= ENC_M7)
+            nic_level = 8;
+        else if (enc_mode <= ENC_M9)
+            nic_level = 9;
+        else
+            nic_level = 11;
+    } else if (enc_mode <= ENC_MR)
+        nic_level = is_base ? 1 : 2;
+    else if (enc_mode <= ENC_M0)
+        nic_level = is_base ? 2 : 3;
+    else if (enc_mode <= ENC_M1)
+        nic_level = is_base ? 3 : 5;
+    else if (enc_mode <= ENC_M3)
+        nic_level = is_base ? 5 : 6;
+    else if (!sc_class1 && enc_mode <= ENC_M4)
+        nic_level = 6;
+    else if (enc_mode <= ENC_M7)
+#if TUNE_M7_RA_FIX_REG
+        nic_level = is_base ? 8 : 9;
+#else
+        nic_level = 8;
+#endif
+    else if (enc_mode <= ENC_M8)
+        nic_level = 9;
+    else if (enc_mode <= ENC_M9)
+#if TUNE_M9_RA_FIX_REG
+        nic_level = is_base ? 9 : 11;
+#else
+        nic_level = 10;
+#endif
+    else
+        nic_level = 11;
+#else
     } else if (enc_mode <= ENC_MR)
         nic_level = is_base ? 1 : 2;
     else if (enc_mode <= ENC_M0)
@@ -5060,7 +5215,7 @@ uint8_t svt_aom_get_nic_level(SequenceControlSet *scs, EncMode enc_mode, uint8_t
         nic_level = 10;
     else
         nic_level = 11;
-
+#endif
     return nic_level;
 }
 #else
@@ -9179,7 +9334,7 @@ uint8_t svt_aom_get_nsq_geom_level(EncMode enc_mode, uint8_t is_base, InputCoeff
 
 uint8_t svt_aom_get_nsq_search_level(PictureControlSet *pcs, EncMode enc_mode, InputCoeffLvl coeff_lvl, uint32_t qp) {
     int nsq_search_level;
-#if !TUNE_RTC_RA_PRESETS
+#if !TUNE_RTC_RA_PRESETS || TUNE_M7_RA_FIX_REG
     const bool rtc_tune = pcs->scs->static_config.rtc;
 #endif
     if (pcs->scs->allintra) {
@@ -9320,6 +9475,10 @@ uint8_t svt_aom_get_nsq_search_level(PictureControlSet *pcs, EncMode enc_mode, I
         nsq_search_level = 12;
     } else if (enc_mode <= ENC_M6) {
         nsq_search_level = 15;
+#if TUNE_M7_RA_FIX_REG
+    } else if (!rtc_tune && enc_mode <= ENC_M7) {
+        nsq_search_level = 18;
+#endif
     } else {
         nsq_search_level = 19;
     }
@@ -10241,7 +10400,11 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
 #if TUNE_RTC_RA_PRESETS
         pcs->wm_level = enc_mode <= ENC_M6 ? pcs->wm_level : 0;
     }
+#if TUNE_M7_RA_FIX_REG
+    if ((enc_mode <= ENC_M6 || (!rtc_tune && !allintra && enc_mode <= ENC_M7)) && scs->seq_qp_mod) {
+#else
     if (enc_mode <= ENC_M6 && scs->seq_qp_mod) {
+#endif
 #else
         pcs->wm_level = enc_mode <= ENC_M7 ? pcs->wm_level : 0;
     }
@@ -10552,7 +10715,11 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
     if (enc_mode <= ENC_MR)
         pcs->interpolation_search_level = 2;
 #if TUNE_RTC_RA_PRESETS
+#if TUNE_M8_RA_FIX_REG
+    else if (enc_mode <= ENC_M7 || (!rtc_tune && !allintra && enc_mode <= ENC_M8))
+#else
     else if (enc_mode <= ENC_M7)
+#endif
 #else
     else if ((enc_mode <= ENC_M9 && !rtc_tune) || (enc_mode <= ENC_M8 && rtc_tune))
 #endif
@@ -10817,6 +10984,14 @@ void svt_aom_sig_deriv_mode_decision_config(SequenceControlSet *scs, PictureCont
         pcs->txs_level = 2;
     } else if (enc_mode <= ENC_M7) {
         pcs->txs_level = is_base ? 3 : 0;
+#if TUNE_M8_RA_FIX_REG
+#if TUNE_M9_RA_FIX_REG
+    } else if (!rtc_tune && enc_mode <= ENC_M9) {
+#else
+    } else if (!rtc_tune && enc_mode <= ENC_M8) {
+#endif
+        pcs->txs_level = is_base ? 4 : 0;
+#endif
     } else if (enc_mode <= ENC_M8) {
         if (sc_class1 && rtc_tune)
             pcs->txs_level = is_base ? 4 : 0;

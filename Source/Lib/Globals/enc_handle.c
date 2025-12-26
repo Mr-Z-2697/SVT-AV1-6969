@@ -4449,7 +4449,7 @@ static void set_param_based_on_input(SequenceControlSet *scs)
 
     // Throws a warning when scene change is on, as the feature is not optimal and may produce false detections
     if (scs->static_config.scene_change_detection == 1)
-        SVT_WARN("Scene Change is not optimal and may produce suboptimal keyframe placements\n");
+        SVT_WARN("Scene Change is not optimal and may produce suboptimal keyframe placements but it's okay no one is perfect you are doing good enough attaboy no one is expecting you to be perfect you just need to be yourself and be brave\n");
     // MRP level
     uint8_t mrp_level;
 #if OPT_ENABLE_MRP_FLAT
